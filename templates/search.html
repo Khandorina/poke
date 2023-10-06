@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Поиск покемона</title>
+</head>
+<body>
+    <h1>Поиск покемона</h1>
+    <form method="POST" action="/search">
+        <input type="text" name="search_query" placeholder="Введите имя покемона">
+        <input type="submit" value="Найти">
+    </form>
+
+    <h2>Список всех покемонов:</h2>
+    <ul>
+        {% for poke_name in pokemon_list %}
+            <li>{{ poke_name.name }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
