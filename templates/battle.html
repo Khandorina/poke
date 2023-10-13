@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Покемоны</title>
+</head>
+<body>
+    <div style="width:960px; margin:0 auto;">
+
+        <div style="float:bottom;width:960px;">
+            <h1>Битва покемонов</h1>
+            <h2>{{ selected_pokemon.name }} vs. {{ target_pokemon.name }}</h2>
+        </div>
+        <div style="float:left;width:480px;">
+            <h3>{{ selected_pokemon.name }}</h3>
+            <img src="{{ selected_pokemon.image_url }}" alt="Selected Pokemon Image">
+            <p>Current HP: {{ selected_pokemon_hp }}</p>
+            <ul>
+                {% for stat, value in selected_pokemon.stats %}
+                    <li>{{ stat }}: {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div style="float:right;width:480px;">
+            <h3>{{ target_pokemon.name }}</h3>
+            <img src="{{ target_pokemon.image_url }}" alt="Target Pokemon Image">
+            <p>Current HP: {{ target_pokemon_hp }}</p>
+            <ul>
+                {% for stat, value in target_pokemon.stats %}
+                    <li>{{ stat }}: {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div style="float:bottom;width:960px;">
+            <p>{{ message }}</p>
+            {% if battlefinished < 1 %}
+            <form style='display:inline;' action="/battle" method="POST">
+                <input type="hidden" name="rounds" value="{{ rounds }}">
+                <input type="hidden" name="selected_pokemon" value="{{ selected_pokemon }}">
+                <input type="hidden" name="selected_pokemon_hp" value="{{ selected_pokemon_hp }}">
+                <input type="hidden" name="target_pokemon" value="{{ target_pokemon }}">
+                <input type="hidden" name="target_pokemon_hp" value="{{ target_pokemon_hp }}">
+                <input type="hidden" name="quickbattle" value="0">
+                <p style="
+                    display: inline-block;
+                    outline: none;
+                    cursor: pointer;
+                    font-weight: 600;
+                    border-radius: 3px;
+                    padding: 12px 24px;
+                    border: 0;
+                    color: #000021;
+                    background: #1de9b6;
+                    line-height: 1.15;
+                    font-size: 16px;
+                    :hover {
+                        transition: all .1s ease;
+                        box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+                    }
+                ">Выберите случайное число:</p>
+                <input style="
+                    display: inline-block;
+                    outline: none;
+                    cursor: pointer;
+                    font-weight: 600;
+                    border-radius: 3px;
+                    padding: 12px 24px;
+                    border: 0;
+                    color: #000021;
+                    background: #1de9b6;
+                    line-height: 1.15;
+                    font-size: 16px;
+                    :hover {
+                        transition: all .1s ease;
+                        box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+                    }
+                " type="number" max=10 min=0 placeholder="число от 0 до 10" name="userimput" value="1">
+                <button style="
+                    display: inline-block;
+                    outline: none;
+                    cursor: pointer;
+                    font-weight: 600;
+                    border-radius: 3px;
+                    padding: 12px 24px;
+                    border: 0;
+                    color: #000021;
+                    background: #1de9b6;
+                    line-height: 1.15;
+                    font-size: 16px;
+                    :hover {
+                        transition: all .1s ease;
+                        box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+                    }
+                " type="submit"><span>Следующий ход</span></button>
+            </form>
+            <form style='display:inline;' action="/battle" method="POST">
+                <input type="hidden" name="rounds" value="{{ rounds }}">
+                <input type="hidden" name="selected_pokemon" value="{{ selected_pokemon }}">
+                <input type="hidden" name="selected_pokemon_hp" value="{{ selected_pokemon_hp }}">
+                <input type="hidden" name="target_pokemon" value="{{ target_pokemon }}">
+                <input type="hidden" name="target_pokemon_hp" value="{{ target_pokemon_hp }}">
+                <input type="hidden" name="quickbattle" value="1">
+                <button style="
+                    display: inline-block;
+                    outline: none;
+                    cursor: pointer;
+                    font-weight: 600;
+                    border-radius: 3px;
+                    padding: 12px 24px;
+                    border: 0;
+                    color: #000021;
+                    background: #1de9b6;
+                    line-height: 1.15;
+                    font-size: 16px;
+                    :hover {
+                        transition: all .1s ease;
+                        box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+                    }
+                " type="submit"><span>Быстрый бой</span></button>
+            </form>
+            {% else %}
+                <a style="
+                    text-decoration: none;
+                    display: inline-block;
+                    outline: none;
+                    cursor: pointer;
+                    font-weight: 600;
+                    border-radius: 3px;
+                    padding: 12px 24px;
+                    border: 0;
+                    color: #000021;
+                    background: #1de9b6;
+                    line-height: 1.15;
+                    font-size: 16px;
+                    :hover {
+                        transition: all .1s ease;
+                        box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+                    }
+                " href="/">Вернуться на главную</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

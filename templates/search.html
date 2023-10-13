@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <link rel="stylesheet" href="../static/style.css">
     <title>Поиск покемона</title>
 </head>
 <body>
-    <h1>Поиск покемона</h1>
-    <form method="POST" action="/search">
+    <h1 class="text-center">Поиск покемона</h1>
+    <form class="text-center" method="POST" action="/search">
         <input type="text" name="search_query" placeholder="Введите имя покемона">
         <input type="submit" value="Найти">
     </form>
