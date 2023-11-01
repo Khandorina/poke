@@ -1,7 +1,5 @@
 import random
 import time
-
-from getpass import getpass
 import smtplib
 import requests
 from flask import Flask, render_template, request
@@ -10,36 +8,22 @@ import psycopg2
 
 app = Flask(__name__)
 
-
-def yandex_sendmail2(email_text):
-    email = "ekaterina.handorina@yandex.ru"
-    password = "jcaotdoqvgfoodch"
-    dest_email = "veter-is-i@yandex.ru"
-    subject = "Pokemon test"
-    message = 'From: {}\nTo: {}\nSubject: {}\n\n{}'.format(email, dest_email, subject, email_text)
-    server = smtplib.SMTP_SSL('smtp.yandex.com')
-    server.set_debuglevel(1)
-    server.ehlo(email)
-    server.login(email, password)
-    server.auth_plain()
-    server.sendmail(email, dest_email, message)
-    server.quit()
-
 def yandex_sendmail(email_text):
     email = "ekaterina.handorina@yandex.ru"
-    password = "jcaotdoqvgfoodch"
+    password = ""
     server = smtplib.SMTP('smtp.yandex.ru', 587)
-    server.ehlo()  # Кстати, зачем это?
+    server.ehlo()
     server.starttls()
     server.login(email, password)
 
-    dest_email = "veter-is-i@yandex.ru"
+    dest_email = "ekaterina.handorina@yandex.ru"
     subject = "Pokemon test"
     message = 'From: %s\nTo: %s\nSubject: %s\n\n%s' % (email, dest_email, subject, email_text)
 
     server.set_debuglevel(1)  # Необязательно; так будут отображаться данные с сервера в консоли
-    server.sendmail(email, dest_email, message)
+    server.sendmail(email, dest_email, message.encode("UTF-8"))
     server.quit()
+    print(2)
 
 def fetch_pokemon_data(limit=5, offset=0, search="", getrandom=0):
     results = []
@@ -132,8 +116,9 @@ def pokemon_battle():
                     cursor.close()
                     conn.close()
             print(2)
-            #Заккоментировать если опять не работает
-            #yandex_sendmail(message)
+
+            yandex_sendmail(message)
+            message = "Сообщение отправлено"
             print(3)
         else:
             if random.choice([0, 1]) == 0:
@@ -171,8 +156,11 @@ def pokemon_battle():
     else:
         rounds = 0
         target_pokemon = fetch_pokemon_data(getrandom=1)[0]
-        selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
-        selected_pokemon = fetch_pokemon_data(search=selected_pokemon_name)[0]
+        selected_pokemon = fetch_pokemon_data(getrandom=1)[0]
+        new = request.args.get("new")
+        if new is None:
+            selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
+            selected_pokemon = fetch_pokemon_data(search=selected_pokemon_name)[0]
         selected_pokemon_stats = {
             stat: base_stat
             for stat, base_stat in selected_pokemon['stats']
