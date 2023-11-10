@@ -1,11 +1,17 @@
+import os
 import random
+import tempfile
 import time
 import smtplib
+import uuid
+from datetime import datetime
+
 import requests
 from flask import Flask, render_template, request
 import ast
 import psycopg2
 import bbcode
+from ftplib import FTP
 
 html_escape_table = {
     "&": "&amp;",
@@ -79,14 +85,68 @@ def list_pokemons():
     return render_template('pokemons.html', pokemon_list=pokemon_list, page=page)
 
 
+@app.route('/ftpsave', methods=['GET','POST'])
+def ftp_save():
+    selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
+    selected_pokemon = fetch_pokemon_data(search=selected_pokemon_name)[0]
+    selected_pokemon_stats = {
+        stat: base_stat
+        for stat, base_stat in selected_pokemon['stats']
+    }
+    saved = False
+
+    if request.method == 'POST':
+        #Создаем временную директорию для работы с временным локальным файлом
+        with tempfile.TemporaryDirectory() as tmpdir:
+            selected_stats = request.form.getlist('stat')
+            print(selected_stats)
+            #Сохраняем покемона в локальный файл чтобы потом загрузить на сервер
+            filename = uuid.uuid4().hex + ".txt"
+            filepath = os.path.join(tmpdir, filename)
+            textpoke = ""
+            textpoke = textpoke + "#" + selected_pokemon_name + "\n"
+            for stat, base_stat in selected_pokemon['stats']:
+                if str(stat) in selected_stats:
+                    textpoke = textpoke + "*" +  str(stat) + ": " + str(base_stat) + "\n"
+            text_file = open(filepath, "w+")
+            n = text_file.write(textpoke)
+            text_file.close()
+            #Подключаемся к локальному фтп серверу
+            ftp = FTP('localhost')
+            ftp.login(user='poke', passwd='412244')
+            dirname = datetime.today().strftime('%Y%m%d')
+            #Проверяем наличие папки yyyymmdd, если не нашли - создаем
+            filelist = []
+            ftp.retrlines('LIST', filelist.append)
+            exists = False
+            for f in filelist:
+                if f.split()[-1] == dirname and f.upper().startswith('D'):
+                    exists = True
+            if exists is False:
+                ftp.mkd(dirname)
+            #Входим в нашу папку yyyymmdd
+            ftp.cwd(dirname)
+            #Загружаем наш файл на сервер
+            with open(filepath, 'rb') as file:
+                ftp.storbinary('STOR ' + filename, file)
+            #Удаляем временный файл
+            #os.remove(filepath)
+            saved = True
+
+    return render_template(
+        'save.html',
+        pokemon_name=selected_pokemon_name,
+        pokemon_stats=selected_pokemon_stats,
+        saved=saved
+    )
+
+
 @app.route('/comment', methods=['GET','POST'])
 def list_comments():
     if request.method == 'POST':
         pokemon_name = request.form.get("pokemon_name")
         rating = request.form.get("rating")
         comment = html_escape(str(request.form.get("editor1")))
-
-    #TODO: проверить входные данные от пользователя на наличие SQL/XSS
 
         try:
             conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
@@ -101,6 +161,7 @@ def list_comments():
             if conn:
                 cursor.close()
                 conn.close()
+
     selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
     pokemon_comments = []
     try:
@@ -124,29 +185,6 @@ def list_comments():
         pokemon_name=selected_pokemon_name,
         pokemon_comments=pokemon_comments
     )
-
-
-@app.route('/addcomment', methods=['POST'])
-def add_comment():
-    pokemon_name = request.args.get("pokemon_name")
-    rating = request.args.get("rating")
-    comment = html_escape(str(request.args.get("editor1")))
-
-#TODO: проверить входные данные от пользователя на наличие SQL/XSS
-
-    try:
-        conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
-        cursor = conn.cursor()
-        query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
-                f' VALUES (%s.%s.%s)'
-        cursor.execute(query,(pokemon_name, rating, comment)) #Экранирование автоматическое у параметризированного запр
-        conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Ошибка подключения к PostgreSQL", error)
-    finally:
-        if conn:
-            cursor.close()
-            conn.close()
 
 
 @app.route('/battle', methods=['POST', 'GET'])

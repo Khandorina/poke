@@ -23,7 +23,8 @@
                 <td>{{ pokemon.stats }}</td>
                 <td><img src="{{ pokemon.image_url }}" alt="изображение покемона по имени {{ pokemon.name }}"></td>
                 <td><a href="/battle?selected_pokemon_name={{ pokemon.name }}">Выбрать</a>
-                    <a href="/comment?selected_pokemon_name={{ pokemon.name }}">Отзывы</a></td>
+                    <a href="/comment?selected_pokemon_name={{ pokemon.name }}">Отзывы</a>
+                    <a href="/ftpsave?selected_pokemon_name={{ pokemon.name }}">Сохранить</a></td>
             </tr>
             {% endfor %}
         </table>
