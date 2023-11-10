@@ -1,4 +1,5 @@
 import os
+import pickle
 import random
 import tempfile
 import time
@@ -6,12 +7,15 @@ import smtplib
 import uuid
 from datetime import datetime
 
+import redis
 import requests
 from flask import Flask, render_template, request
 import ast
 import psycopg2
 import bbcode
 from ftplib import FTP
+
+cacheserver = redis.Redis('localhost', 6379, 0)
 
 html_escape_table = {
     "&": "&amp;",
@@ -48,14 +52,28 @@ def fetch_pokemon_data(limit=5, offset=0, search="", getrandom=0):
         data = requests.get(f"https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0").json()
         results.append(random.choice(data['results']))
     elif len(search) > 1:
-        data = requests.get(f"https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0").json()
-        results = data['results']
-        results = [pokemon for pokemon in results if pokemon['name'].startswith(search)]
+        rediskey = "s" + str(search)
+        if cacheserver.exists(rediskey):
+            results = pickle.loads(cacheserver.get(rediskey))
+            print("load results from cache")
+        else:
+            data = requests.get(f"https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0").json()
+            results = data['results']
+            results = [pokemon for pokemon in results if pokemon['name'].startswith(search)]
+            cacheserver.set(rediskey, pickle.dumps(results))
+            print("saved results to cache")
     else:
-        url = f"https://pokeapi.co/api/v2/pokemon?limit={limit}&offset={offset}"
-        response = requests.get(url)
-        data = response.json()
-        results = data['results']
+        rediskey = str(offset) + "x" + str(limit)
+        if cacheserver.exists(rediskey):
+            results = pickle.loads(cacheserver.get(rediskey))
+            print("load results from cache")
+        else:
+            url = f"https://pokeapi.co/api/v2/pokemon?limit={limit}&offset={offset}"
+            response = requests.get(url)
+            data = response.json()
+            results = data['results']
+            cacheserver.set(rediskey, pickle.dumps(results))
+            print("saved results to cache")
 
     pokemon_list = []
     for result in results:
@@ -99,7 +117,6 @@ def ftp_save():
         #Создаем временную директорию для работы с временным локальным файлом
         with tempfile.TemporaryDirectory() as tmpdir:
             selected_stats = request.form.getlist('stat')
-            print(selected_stats)
             #Сохраняем покемона в локальный файл чтобы потом загрузить на сервер
             filename = uuid.uuid4().hex + ".txt"
             filepath = os.path.join(tmpdir, filename)
@@ -109,7 +126,7 @@ def ftp_save():
                 if str(stat) in selected_stats:
                     textpoke = textpoke + "*" +  str(stat) + ": " + str(base_stat) + "\n"
             text_file = open(filepath, "w+")
-            n = text_file.write(textpoke)
+            text_file.write(textpoke)
             text_file.close()
             #Подключаемся к локальному фтп серверу
             ftp = FTP('localhost')
