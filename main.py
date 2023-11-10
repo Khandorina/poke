@@ -5,6 +5,17 @@ import requests
 from flask import Flask, render_template, request
 import ast
 import psycopg2
+import bbcode
+
+html_escape_table = {
+    "&": "&amp;",
+    '"': "&quot;",
+    "'": "&apos;",
+    ">": "&gt;",
+    "<": "&lt;",
+}
+def html_escape(text):
+    return "".join(html_escape_table.get(c,c) for c in text)
 
 app = Flask(__name__)
 
@@ -68,6 +79,76 @@ def list_pokemons():
     return render_template('pokemons.html', pokemon_list=pokemon_list, page=page)
 
 
+@app.route('/comment', methods=['GET','POST'])
+def list_comments():
+    if request.method == 'POST':
+        pokemon_name = request.form.get("pokemon_name")
+        rating = request.form.get("rating")
+        comment = html_escape(str(request.form.get("editor1")))
+
+    #TODO: проверить входные данные от пользователя на наличие SQL/XSS
+
+        try:
+            conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+            cursor = conn.cursor()
+            query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
+                    f' VALUES (%s,%s,%s)'
+            cursor.execute(query,(pokemon_name, rating, comment)) #Экранирование автоматическое у параметризированного запр
+            conn.commit()
+        except (Exception, psycopg2.Error) as error:
+            print("Ошибка подключения к PostgreSQL", error)
+        finally:
+            if conn:
+                cursor.close()
+                conn.close()
+    selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
+    pokemon_comments = []
+    try:
+        conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+        cursor = conn.cursor()
+        query = "SELECT * FROM public.pokemon_comments WHERE pokemon_name = %s"
+        cursor.execute(query, (selected_pokemon_name,))
+
+        pokemon_comments_bb = cursor.fetchall()
+        for comment_bb in pokemon_comments_bb:
+            pokemon_comments.append([comment_bb[2], bbcode.render_html(comment_bb[3])])
+        conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("Ошибка подключения к PostgreSQL", error)
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+    return render_template(
+        'comment.html',
+        pokemon_name=selected_pokemon_name,
+        pokemon_comments=pokemon_comments
+    )
+
+
+@app.route('/addcomment', methods=['POST'])
+def add_comment():
+    pokemon_name = request.args.get("pokemon_name")
+    rating = request.args.get("rating")
+    comment = html_escape(str(request.args.get("editor1")))
+
+#TODO: проверить входные данные от пользователя на наличие SQL/XSS
+
+    try:
+        conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+        cursor = conn.cursor()
+        query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
+                f' VALUES (%s.%s.%s)'
+        cursor.execute(query,(pokemon_name, rating, comment)) #Экранирование автоматическое у параметризированного запр
+        conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("Ошибка подключения к PostgreSQL", error)
+    finally:
+        if conn:
+            cursor.close()
+            conn.close()
+
+
 @app.route('/battle', methods=['POST', 'GET'])
 def pokemon_battle():
     battlefinished = 0;
@@ -118,7 +199,7 @@ def pokemon_battle():
             print(2)
 
             yandex_sendmail(message)
-            message = "Сообщение отправлено"
+            #message = "Сообщение отправлено"
             print(3)
         else:
             if random.choice([0, 1]) == 0:
