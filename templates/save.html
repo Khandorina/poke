@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Покемоны</title>
+</head>
+<body>
+    <div style="width:960px; margin:0 auto;">
+        <h1>Сохранение {{pokemon_name}}</h1>
+        {% if saved %}
+            <div>Покемон успешно сохранен на фтп</div>
+        {% endif %}
+        <form action="/ftpsave?selected_pokemon_name={{ pokemon_name }}" method="POST">
+            <input type="hidden" name="pokemon_name" value="{{ pokemon_name }}">
+            <fieldset>
+            <legend>Выберите характеристики для сохранения:</legend>
+            {% for stat in pokemon_stats %}
+            <div>
+                <input type="checkbox" id="{{ stat }}" value="{{ stat }}" name="stat" checked />
+                <label for="{{ stat }}">{{ stat }}</label>
+            </div>
+            {% endfor %}
+            </fieldset>
+            <input type="submit" value="Сохранить на фтп">
+        </form>
+        <a style="
+            text-decoration: none;
+            display: inline-block;
+            outline: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 3px;
+            padding: 12px 24px;
+            border: 0;
+            color: #000021;
+            background: #1de9b6;
+            line-height: 1.15;
+            font-size: 16px;
+            :hover {
+                transition: all .1s ease;
+                box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+            }"
+           href="/">Вернуться на главную страницу</a>
+        <br>
+    </div>
+<script>
+        CKEDITOR.replace( 'editor1' );
+    </script>
+</body>
+</html>
