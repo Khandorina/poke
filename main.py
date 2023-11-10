@@ -15,7 +15,9 @@ import psycopg2
 import bbcode
 from ftplib import FTP
 
-cacheserver = redis.Redis('localhost', 6379, 0)
+
+dbhost = "host.docker.internal"
+cacheserver = redis.Redis(dbhost, 6379, 0)
 
 html_escape_table = {
     "&": "&amp;",
@@ -129,7 +131,7 @@ def ftp_save():
             text_file.write(textpoke)
             text_file.close()
             #Подключаемся к локальному фтп серверу
-            ftp = FTP('localhost')
+            ftp = FTP(dbhost)
             ftp.login(user='poke', passwd='412244')
             dirname = datetime.today().strftime('%Y%m%d')
             #Проверяем наличие папки yyyymmdd, если не нашли - создаем
@@ -166,7 +168,7 @@ def list_comments():
         comment = html_escape(str(request.form.get("editor1")))
 
         try:
-            conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+            conn = psycopg2.connect(host=dbhost, database="pokemons", user="postgres", password="412244")
             cursor = conn.cursor()
             query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
                     f' VALUES (%s,%s,%s)'
@@ -182,7 +184,7 @@ def list_comments():
     selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
     pokemon_comments = []
     try:
-        conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+        conn = psycopg2.connect(host=dbhost, database="pokemons", user="postgres", password="412244")
         cursor = conn.cursor()
         query = "SELECT * FROM public.pokemon_comments WHERE pokemon_name = %s"
         cursor.execute(query, (selected_pokemon_name,))
@@ -239,7 +241,7 @@ def pokemon_battle():
             battlefinished = 1
             print(1)
             try:
-                conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+                conn = psycopg2.connect(host=dbhost, database="pokemons", user="postgres", password="412244")
                 cursor = conn.cursor()
                 query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
                         f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
@@ -276,7 +278,7 @@ def pokemon_battle():
                     message = "Битва окончена! Победитель: " + selected_pokemon['name']
                 battlefinished = 1
                 try:
-                    conn = psycopg2.connect(host="localhost", database="pokemons", user="postgres", password="412244")
+                    conn = psycopg2.connect(host=dbhost, database="pokemons", user="postgres", password="412244")
                     cursor = conn.cursor()
                     query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
                             f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
