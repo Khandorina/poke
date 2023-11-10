@@ -32,14 +32,17 @@ def html_escape(text):
 app = Flask(__name__)
 
 def yandex_sendmail(email_text):
-    email = "ekaterina.handorina@yandex.ru"
-    password = ""
+
+    #Заменить на email = 1 password = 2 для встроенных логина и пароля от почты
+    email = os.getenv('SMTPLOGIN');
+    password = os.getenv('SMTPPASS');
+
     server = smtplib.SMTP('smtp.yandex.ru', 587)
     server.ehlo()
     server.starttls()
     server.login(email, password)
 
-    dest_email = "ekaterina.handorina@yandex.ru"
+    dest_email = email
     subject = "Pokemon test"
     message = 'From: %s\nTo: %s\nSubject: %s\n\n%s' % (email, dest_email, subject, email_text)
 
