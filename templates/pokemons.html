@@ -51,6 +51,17 @@
             <a href="/?page={{ page+3 }}">{{ page+3 }}</a>
             <a href="/?page={{ page+4 }}">{{ page+4 }}</a>
             <a href="/?page={{ page+1 }}">Далее</a>
+            {% if username != "" %}
+                <p> Вы вошли как <b>{{ username }}</b></p>
+                <a href="/logout">Выйти</a>
+            {% else %}
+                <a href="/verification_code">Войти через Яндекс ID</a>
+                <a href="/login">Войти используя email</a>
+                <a href="/register">Зарегестрироваться</a>
+                <a href="/lostpass">Восстановить пароль</a>
+            {% endif %}
+
+
         </div>
     </div>
 </body>

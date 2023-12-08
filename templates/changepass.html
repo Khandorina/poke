@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Покемоны</title>
+</head>
+<body>
+    <div style="width:960px; margin:0 auto;">
+        <h1>Восстановление пароля</h1>
+        {% if error %}
+            <div>{{error}}</div>
+        {% endif %}
+        <form action="/lostpass" method="POST">
+            <input type="hidden" name="login" value="{{ username }}">
+            <input type="password" placeholder="Введите новый пароль" name="password" required>
+            <input type="text" placeholder="Введите код с почты" name="lostpasscode" required>
+            <input type="submit" value="Установить новый пароль">
+        </form>
+        <a style="
+            text-decoration: none;
+            display: inline-block;
+            outline: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 3px;
+            padding: 12px 24px;
+            border: 0;
+            color: #000021;
+            background: #1de9b6;
+            line-height: 1.15;
+            font-size: 16px;
+            :hover {
+                transition: all .1s ease;
+                box-shadow: 0 0 0 0 #fff, 0 0 0 3px #1de9b6;
+            }"
+           href="/">Вернуться на главную страницу</a>
+        <br>
+    </div>
+</body>
+</html>
