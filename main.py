@@ -18,17 +18,19 @@ from ftplib import FTP
 from flask_session import Session
 import argon2
 
-CLIENTID=os.getenv('CLIENTID')
-CLIENTSECRET=os.getenv('CLIENTSECRET')
-SMTPLOGIN=os.getenv('SMTPLOGIN')
-SMTPPASS=os.getenv('SMTPPASS')
-FTPLOGIN=os.getenv('FTPLOGIN')
-FTPPASS=os.getenv('FTPPASS')
-DBUSER=os.getenv('DBUSER')
-DBPASS=os.getenv('DBPASS')
+CLIENTID=os.getenv('CLIENTID', '')
+CLIENTSECRET=os.getenv('CLIENTSECRET', '')
+SMTPLOGIN=os.getenv('SMTPLOGIN', '')
+SMTPPASS=os.getenv('SMTPPASS', '')
+FTPLOGIN=os.getenv('FTPLOGIN', '')
+FTPPASS=os.getenv('FTPPASS', '')
+DBUSER=os.getenv('DBUSER', '')
+DBPASS=os.getenv('DBPASS', '')
 dbhost = "host.docker.internal" # подключение по адресу хоста из докера, порт везде стандартный
+PGHOST=os.getenv('PGHOST', dbhost)
+RDHOST=os.getenv('RDHOST', dbhost)
 
-cacheserver = redis.Redis(dbhost, 6379, 0)
+cacheserver = redis.Redis(RDHOST, 6379, 0)
 
 html_escape_table = {
     "&": "&amp;",
@@ -51,23 +53,23 @@ sess = Session(app)
 
 
 def yandex_sendmail(email_text, dest=SMTPLOGIN):
-    # Заменить на email = 1 password = 2 для встроенных логина и пароля от почты
-    email = SMTPLOGIN
-    password = SMTPPASS
+    if SMTPLOGIN != '' and SMTPPASS != '':
+        # Заменить на email = 1 password = 2 для встроенных логина и пароля от почты
+        email = SMTPLOGIN
+        password = SMTPPASS
 
-    server = smtplib.SMTP('smtp.yandex.ru', 587)
-    server.ehlo()
-    server.starttls()
-    server.login(email, password)
+        server = smtplib.SMTP('smtp.yandex.ru', 587)
+        server.ehlo()
+        server.starttls()
+        server.login(email, password)
 
-    dest_email = dest
-    subject = "Pokemon test"
-    message = 'From: %s\nTo: %s\nSubject: %s\n\n%s' % (email, dest_email, subject, email_text)
+        dest_email = dest
+        subject = "Pokemon test"
+        message = 'From: %s\nTo: %s\nSubject: %s\n\n%s' % (email, dest_email, subject, email_text)
 
-    server.set_debuglevel(1)  # Необязательно; так будут отображаться данные с сервера в консоли
-    server.sendmail(email, dest_email, message.encode("UTF-8"))
-    server.quit()
-    print(2)
+        server.set_debuglevel(1)  # Необязательно; так будут отображаться данные с сервера в консоли
+        server.sendmail(email, dest_email, message.encode("UTF-8"))
+        server.quit()
 
 
 def fetch_pokemon_data(limit=5, offset=0, search="", getrandom=0):
@@ -159,27 +161,28 @@ def ftp_save():
             text_file = open(filepath, "w+")
             text_file.write(textpoke)
             text_file.close()
-            # Подключаемся к локальному фтп серверу
-            ftp = FTP(dbhost)
-            ftp.login(user=FTPLOGIN, passwd=FTPPASS)  # вынести логин и пароль в контейнер докера
-            dirname = datetime.today().strftime('%Y%m%d')
-            # Проверяем наличие папки yyyymmdd, если не нашли - создаем
-            filelist = []
-            ftp.retrlines('LIST', filelist.append)
-            exists = False
-            for f in filelist:
-                if f.split()[-1] == dirname and f.upper().startswith('D'):
-                    exists = True
-            if exists is False:
-                ftp.mkd(dirname)
-            # Входим в нашу папку yyyymmdd
-            ftp.cwd(dirname)
-            # Загружаем наш файл на сервер
-            with open(filepath, 'rb') as file:
-                ftp.storbinary('STOR ' + filename, file)
-            # Удаляем временный файл
-            # os.remove(filepath)
-            saved = True
+            if FTPLOGIN != '' and FTPPASS != '':
+                # Подключаемся к локальному фтп серверу
+                ftp = FTP(dbhost)
+                ftp.login(user=FTPLOGIN, passwd=FTPPASS)  # вынести логин и пароль в контейнер докера
+                dirname = datetime.today().strftime('%Y%m%d')
+                # Проверяем наличие папки yyyymmdd, если не нашли - создаем
+                filelist = []
+                ftp.retrlines('LIST', filelist.append)
+                exists = False
+                for f in filelist:
+                    if f.split()[-1] == dirname and f.upper().startswith('D'):
+                        exists = True
+                if exists is False:
+                    ftp.mkd(dirname)
+                # Входим в нашу папку yyyymmdd
+                ftp.cwd(dirname)
+                # Загружаем наш файл на сервер
+                with open(filepath, 'rb') as file:
+                    ftp.storbinary('STOR ' + filename, file)
+                # Удаляем временный файл
+                # os.remove(filepath)
+                saved = True
 
     return render_template(
         'save.html',
@@ -196,13 +199,34 @@ def list_comments():
         rating = request.form.get("rating")
         comment = html_escape(str(request.form.get("editor1")))
 
+        if DBUSER != '' and DBPASS != '':
+            try:
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user="postgres", password="412244")
+                cursor = conn.cursor()
+                query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
+                        f' VALUES (%s,%s,%s)'
+                cursor.execute(query,
+                               (pokemon_name, rating, comment))  # Экранирование автоматическое у параметризированного запр
+                conn.commit()
+            except (Exception, psycopg2.Error) as error:
+                print("Ошибка подключения к PostgreSQL", error)
+            finally:
+                if conn:
+                    cursor.close()
+                    conn.close()
+
+    selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
+    pokemon_comments = []
+    if DBUSER != '' and DBPASS != '':
         try:
-            conn = psycopg2.connect(host=dbhost, database="pokemons", user="postgres", password="412244")
+            conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
             cursor = conn.cursor()
-            query = f'INSERT INTO public.pokemon_comments(pokemon_name, rating, comment)' \
-                    f' VALUES (%s,%s,%s)'
-            cursor.execute(query,
-                           (pokemon_name, rating, comment))  # Экранирование автоматическое у параметризированного запр
+            query = "SELECT * FROM public.pokemon_comments WHERE pokemon_name = %s"
+            cursor.execute(query, (selected_pokemon_name,))
+
+            pokemon_comments_bb = cursor.fetchall()
+            for comment_bb in pokemon_comments_bb:
+                pokemon_comments.append([comment_bb[2], bbcode.render_html(comment_bb[3])])
             conn.commit()
         except (Exception, psycopg2.Error) as error:
             print("Ошибка подключения к PostgreSQL", error)
@@ -210,25 +234,6 @@ def list_comments():
             if conn:
                 cursor.close()
                 conn.close()
-
-    selected_pokemon_name = str(request.args.get("selected_pokemon_name"))
-    pokemon_comments = []
-    try:
-        conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
-        cursor = conn.cursor()
-        query = "SELECT * FROM public.pokemon_comments WHERE pokemon_name = %s"
-        cursor.execute(query, (selected_pokemon_name,))
-
-        pokemon_comments_bb = cursor.fetchall()
-        for comment_bb in pokemon_comments_bb:
-            pokemon_comments.append([comment_bb[2], bbcode.render_html(comment_bb[3])])
-        conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Ошибка подключения к PostgreSQL", error)
-    finally:
-        if conn:
-            cursor.close()
-            conn.close()
     return render_template(
         'comment.html',
         pokemon_name=selected_pokemon_name,
@@ -269,29 +274,25 @@ def pokemon_battle():
             else:
                 message = "Битва окончена! Победитель: " + selected_pokemon['name']
             battlefinished = 1
-            print(1)
-            try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
-                cursor = conn.cursor()
-                if 'username' in session:
-                    query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds, username)' \
-                            f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds, session["username"]])}'
-                else:
-                    query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
-                            f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
-                cursor.execute(query)
-                conn.commit()
-            except (Exception, psycopg2.Error) as error:
-                print("Ошибка подключения к PostgreSQL", error)
-            finally:
-                if conn:
-                    cursor.close()
-                    conn.close()
-            print(2)
-
+            if DBUSER != '' and DBPASS != '':
+                try:
+                    conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
+                    cursor = conn.cursor()
+                    if 'username' in session:
+                        query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds, username)' \
+                                f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds, session["username"]])}'
+                    else:
+                        query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
+                                f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
+                    cursor.execute(query)
+                    conn.commit()
+                except (Exception, psycopg2.Error) as error:
+                    print("Ошибка подключения к PostgreSQL", error)
+                finally:
+                    if conn:
+                        cursor.close()
+                        conn.close()
             yandex_sendmail(message)
-            # message = "Сообщение отправлено"
-            print(3)
         else:
             if random.choice([0, 1]) == 0:
                 damage = 15 * target_pokemon_stats['attack'] / selected_pokemon_stats['defense']
@@ -311,23 +312,24 @@ def pokemon_battle():
                 else:
                     message = "Битва окончена! Победитель: " + selected_pokemon['name']
                 battlefinished = 1
-                try:
-                    conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
-                    cursor = conn.cursor()
-                    if 'username' in session:
-                        query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds, username)' \
-                                f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds, session["username"]])}'
-                    else:
-                        query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
-                                f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
-                    cursor.execute(query)
-                    conn.commit()
-                except (Exception, psycopg2.Error) as error:
-                    print("Ошибка подключения к PostgreSQL", error)
-                finally:
-                    if conn:
-                        cursor.close()
-                        conn.close()
+                if DBUSER != '' and DBPASS != '':
+                    try:
+                        conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
+                        cursor = conn.cursor()
+                        if 'username' in session:
+                            query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds, username)' \
+                                    f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds, session["username"]])}'
+                        else:
+                            query = f'INSERT INTO public.battle_history(date, pokemon1, pokemon2, winner, rounds)' \
+                                    f' VALUES {tuple([time.time(), selected_pokemon["name"], target_pokemon["name"], winner, rounds])}'
+                        cursor.execute(query)
+                        conn.commit()
+                    except (Exception, psycopg2.Error) as error:
+                        print("Ошибка подключения к PostgreSQL", error)
+                    finally:
+                        if conn:
+                            cursor.close()
+                            conn.close()
 
     else:
         rounds = 0
@@ -365,7 +367,7 @@ def pokemon_battle():
 
 @app.route('/verification_code')
 def verification_code():
-    if 'username' in session:
+    if 'username' in session or CLIENTID == '' or CLIENTSECRET == '':
         return redirect(url_for('list_pokemons'))
     else:
         if request.args.get('code', False):
@@ -382,21 +384,22 @@ def verification_code():
             userinfo = requests.get('https://login.yandex.ru/info',
                                     headers={'Authorization': 'OAuth ' + oauthjson['access_token']}).json()
 
-            try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
-                cursor = conn.cursor()
-                query = f'INSERT INTO public.pokemon_users(email)' \
-                        f' VALUES (\'{userinfo["default_email"]}\')' \
-                        f' ON CONFLICT (email) DO NOTHING;'
-                cursor.execute(query)
-                conn.commit()
-                session['username'] = userinfo['default_email']
-            except (Exception, psycopg2.Error) as error:
-                print("Ошибка подключения к PostgreSQL", error)
-            finally:
-                if conn:
-                    cursor.close()
-                    conn.close()
+            if DBUSER != '' and DBPASS != '':
+                try:
+                    conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
+                    cursor = conn.cursor()
+                    query = f'INSERT INTO public.pokemon_users(email)' \
+                            f' VALUES (\'{userinfo["default_email"]}\')' \
+                            f' ON CONFLICT (email) DO NOTHING;'
+                    cursor.execute(query)
+                    conn.commit()
+                    session['username'] = userinfo['default_email']
+                except (Exception, psycopg2.Error) as error:
+                    print("Ошибка подключения к PostgreSQL", error)
+                finally:
+                    if conn:
+                        cursor.close()
+                        conn.close()
             return redirect(url_for('list_pokemons'))
         else:
             # Если скрипт был вызван без указания параметра "code",
@@ -412,11 +415,11 @@ def logout():
 
 @app.route('/register', methods=['POST', 'GET'])
 def register():
-    if request.method == 'POST':
+    if request.method == 'POST' and DBUSER != '' and DBPASS != '':
         login = request.form.get('login')
 
         try:
-            conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+            conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
             cursor = conn.cursor()
             query = "SELECT COUNT(*) FROM public.pokemon_users WHERE email = %s"
             cursor.execute(query, (login,))
@@ -436,7 +439,7 @@ def register():
         password = argon2.hash_password(str.encode(password)).decode()
         print(password)
         try:
-            conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+            conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
             cursor = conn.cursor()
             query = f'INSERT INTO public.pokemon_users(email,password)' \
                     f' VALUES {tuple([login, password])}'
@@ -457,7 +460,7 @@ def register():
 
 @app.route('/login', methods=['POST', 'GET'])
 def login():
-    if request.method == 'POST':
+    if request.method == 'POST' and DBUSER != '' and DBPASS != '':
         lostpasscode = request.form.get('lostpasscode', '')
         if lostpasscode == '':
             username = request.form.get('login', '')
@@ -468,7 +471,7 @@ def login():
             #Берем пароль пользователя и сверяем с полученным
             user_password = ""
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = "SELECT password FROM public.pokemon_users WHERE email = %s"
                 cursor.execute(query, (username,))
@@ -493,7 +496,7 @@ def login():
             secretcode = random.randint(100000, 999999)
             #Сохраняем в базе
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = f'UPDATE public.pokemon_users' \
                         f' SET lostpasscode = \'{secretcode}\'' \
@@ -509,7 +512,7 @@ def login():
             #Отправляем письмо, проверив что почта есть в базе
             user_email = ""
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = "SELECT email FROM public.pokemon_users WHERE email = %s"
                 cursor.execute(query, (username,))
@@ -536,7 +539,7 @@ def login():
             #Берем пароль пользователя, там где код и почта равны присланым и сверяем с полученным
             user_password = ""
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = "SELECT password FROM public.pokemon_users WHERE email = %s AND lostpasscode = %s"
                 cursor.execute(query, (username,lostpasscode,))
@@ -564,7 +567,7 @@ def login():
 
 @app.route('/lostpass', methods=['POST', 'GET'])
 def lostpass():
-    if request.method == 'POST':
+    if request.method == 'POST' and DBUSER != '' and DBPASS != '':
         username = request.form.get('login', "")
         if username == "":
             return render_template('lostpass.html')
@@ -572,7 +575,7 @@ def lostpass():
         if lostpasscode == "":
             user_email=""
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = "SELECT email FROM public.pokemon_users WHERE email = %s"
                 cursor.execute(query, (username,))
@@ -589,7 +592,7 @@ def lostpass():
             secretcode = random.randint(100000, 999999)
 
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = f'UPDATE public.pokemon_users' \
                         f' SET lostpasscode = \'{secretcode}\'' \
@@ -614,7 +617,7 @@ def lostpass():
             password = argon2.hash_password(str.encode(password)).decode()
 
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = "SELECT email FROM public.pokemon_users WHERE email = %s AND lostpasscode = %s"
                 cursor.execute(query, (username,lostpasscode,))
@@ -628,7 +631,7 @@ def lostpass():
                     cursor.close()
                     conn.close()
             try:
-                conn = psycopg2.connect(host=dbhost, database="pokemons", user=DBUSER, password=DBPASS)
+                conn = psycopg2.connect(host=PGHOST, database="pokemons", user=DBUSER, password=DBPASS)
                 cursor = conn.cursor()
                 query = f'UPDATE public.pokemon_users SET password = \'{password}\' WHERE email = \'{username}\' AND lostpasscode = \'{lostpasscode}\';'
                 print(query)

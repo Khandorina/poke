@@ -5,8 +5,9 @@ import pickle
 import os
 
 class TestUnitPokemons(unittest.TestCase):
+
     def test_list(self):
-        content = urllib.request.urlopen("http://localhost:5000").read()
+        content = urllib.request.urlopen("http://" + os.getenv('APPHOST', 'localhost') + ":5000").read()
 
         file_name = 'test_list.pkl'
         #Код создания дампа html результата
@@ -17,7 +18,7 @@ class TestUnitPokemons(unittest.TestCase):
         self.assertEqual(content, content2)  # add assertion here
 
     def test_search(self):
-        content = urllib.request.urlopen("http://localhost:5000/?search=bulbasaur&api=1").read()
+        content = urllib.request.urlopen("http://" + os.getenv('APPHOST', 'localhost') + ":5000/?search=bulbasaur&api=1").read()
 
         file_name = 'test_search.json'
         with open(file_name, 'wt') as file:
@@ -27,7 +28,7 @@ class TestUnitPokemons(unittest.TestCase):
         self.assertEqual(str(content), str(content2))
 
     def test_save(self):
-        content = urllib.request.urlopen("http://localhost:5000/ftpsave?selected_pokemon_name=bulbasaur").read()
+        content = urllib.request.urlopen("http://" + os.getenv('APPHOST', 'localhost') + ":5000/ftpsave?selected_pokemon_name=bulbasaur").read()
 
         file_name = 'test_save.pkl'
         #Код создания дампа html результата
